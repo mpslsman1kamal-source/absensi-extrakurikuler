@@ -396,6 +396,14 @@
   .paper .foot .qr { width: 56px; height: 56px; flex-shrink: 0; }
   .paper .foot .qr img, .paper .foot .qr svg { width: 100%; height: 100%; }
   .paper .wm { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; transform: rotate(-28deg); font-family: Arial, sans-serif; font-weight: 800; font-size: 74px; color: rgba(37,99,235,.06); letter-spacing: .08em; white-space: nowrap; }
+  /* Halaman lampiran foto kegiatan & selfie (dokumen resmi) */
+  .paper.lampiran { margin-top: 24px; page-break-before: always; break-before: page; }
+  .lamp-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px 16px; margin-top: 20px; }
+  .lamp-item { font-family: Arial, sans-serif; }
+  .lamp-cap { font-size: 11px; font-weight: 700; margin-bottom: 6px; }
+  .lamp-frame { border: 1px solid #222; aspect-ratio: 4/3; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #f8fafc; }
+  .lamp-frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .lamp-wait { font-size: 11px; color: #777; }
   #printRoot { display: none; }
   
   /* ── Modal, Sheet, Toast ── */

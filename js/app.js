@@ -920,14 +920,20 @@ function beepOk() {
   try {
     if (!_beepCtx) _beepCtx = new (window.AudioContext || window.webkitAudioContext)();
     if (_beepCtx.state === 'suspended') _beepCtx.resume();
-    const ctx = _beepCtx, t0 = ctx.currentTime;
-    const osc = ctx.createOscillator(), gain = ctx.createGain();
-    osc.type = 'sine'; osc.frequency.setValueAtTime(1046.5, t0);
+    const ctx = _beepCtx, t0 = ctx.currentTime, dur = 0.9;
+    const osc = ctx.createOscillator(), osc2 = ctx.createOscillator(), gain = ctx.createGain(), gain2 = ctx.createGain();
+    osc.type = 'sine'; osc.frequency.setValueAtTime(1568, t0);   // nada dasar "ting" yang nyaring
+    osc2.type = 'sine'; osc2.frequency.setValueAtTime(3136, t0); // oktaf di atas, memberi kesan "berdenting"
     gain.gain.setValueAtTime(0.0001, t0);
-    gain.gain.exponentialRampToValueAtTime(0.35, t0 + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.16);
+    gain.gain.exponentialRampToValueAtTime(0.4, t0 + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    gain2.gain.setValueAtTime(0.0001, t0);
+    gain2.gain.exponentialRampToValueAtTime(0.12, t0 + 0.012);
+    gain2.gain.exponentialRampToValueAtTime(0.0001, t0 + dur * 0.6);
     osc.connect(gain); gain.connect(ctx.destination);
-    osc.start(t0); osc.stop(t0 + 0.18);
+    osc2.connect(gain2); gain2.connect(ctx.destination);
+    osc.start(t0); osc.stop(t0 + dur + 0.05);
+    osc2.start(t0); osc2.stop(t0 + dur + 0.05);
   } catch (e) { /* perangkat/izin audio tidak mendukung, diamkan */ }
 }
 function markByCode(code, log) {
@@ -1806,7 +1812,7 @@ function stampSvg(ok) {
   return '<svg viewBox="0 0 100 100" width="92" height="92" style="position:absolute;left:10px;top:-6px;opacity:.88"><defs><path id="stA" d="M50 50 m-36 0 a36 36 0 1 1 72 0"/><path id="stB" d="M50 50 m-36 0 a36 36 0 0 0 72 0"/></defs><circle cx="50" cy="50" r="46" fill="none" stroke="#1d4ed8" stroke-width="1.6" stroke-dasharray="4 3"/><circle cx="50" cy="50" r="30" fill="none" stroke="#1d4ed8" stroke-width=".8"/><text font-family="Arial" font-size="8" font-weight="700" fill="#1d4ed8" letter-spacing="1"><textPath href="#stA" startOffset="50%" text-anchor="middle">PEMERINTAH JAWA TIMUR</textPath></text><text font-family="Arial" font-size="8" font-weight="700" fill="#1d4ed8" letter-spacing="1"><textPath href="#stB" startOffset="50%" text-anchor="middle">SMAN 1 KAMAL</textPath></text><text x="50" y="47" text-anchor="middle" font-family="Arial" font-size="7" font-weight="800" fill="#1d4ed8">? RESMI ?</text><text x="50" y="57" text-anchor="middle" font-family="Arial" font-size="7.5" font-weight="800" fill="#1d4ed8">TERVALIDASI</text></svg>';
 }
 function docHtml(d) {
-  const m = d.meta, nd = d.dates.length, MK = { Hadir: '<span class="mk-H">?</span>', Sakit: '<span class="mk-S">S</span>', Izin: '<span class="mk-I">I</span>', Alpa: '<span class="mk-A">A</span>' };
+  const m = d.meta, nd = d.dates.length, MK = { Hadir: '<span class="mk-H">✓</span>', Sakit: '<span class="mk-S">S</span>', Izin: '<span class="mk-I">I</span>', Alpa: '<span class="mk-A">A</span>' };
   const allValid = d.sesiValid > 0 && d.sesiBelumValid === 0;
   const qr = qrSvg('SIABSENS-EKSKUL|' + m.nomor + '|VER:' + m.kodeVerifikasi + '|' + m.waktuServer);
   const body = d.rows.map(function (r) {
@@ -1820,9 +1826,41 @@ function docHtml(d) {
     '<div class="meta"><div><span class="k">Nama Ekstrakurikuler</span><span><b>' + h(d.kelas.nama.toUpperCase()) + '</b></span></div><div><span class="k">Jadwal Latihan</span><span>' + h(m.jadwal) + '</span></div><div><span class="k">Nama Pembina</span><span>' + h(d.pembina.nama) + '</span></div><div><span class="k">Lokasi Kegiatan</span><span>' + h(m.lokasi || '-') + '</span></div><div><span class="k">NIP Pembina</span><span style="font-family:ui-monospace,Menlo,monospace">' + h(d.pembina.nip || '-') + '</span></div><div><span class="k">Jumlah Pertemuan</span><span>' + d.sesiValid + ' Sesi Terverifikasi</span></div></div>' +
     (nd ? '<table><thead><tr><th rowspan="2" style="width:28px">NO</th><th rowspan="2" style="width:78px">NISN</th><th rowspan="2" style="width:50px">NO.<br>INDUK</th><th rowspan="2" style="min-width:150px">NAMA LENGKAP<br>SISWA</th><th rowspan="2" style="width:62px">KELAS</th><th colspan="' + nd + '">PERTEMUAN (' + h(d.bulanLabel.split(' ')[0].toUpperCase()) + ')</th><th colspan="4">TOTAL</th><th rowspan="2" style="width:42px">%<br>HADIR</th><th rowspan="2" style="min-width:84px">KETERANGAN</th></tr><tr>' + d.dates.map(function (x) { return '<th style="width:34px;font-weight:600">' + h(x.label) + '</th>'; }).join('') + '<th style="width:26px;background:#dcfce7">H</th><th style="width:26px;background:#fef3c7">S</th><th style="width:26px;background:#e0f2fe">I</th><th style="width:26px;background:#fee2e2">A</th></tr></thead><tbody>' + body +
       '<tr class="sum"><td colspan="5" style="text-align:right">RATA-RATA KEHADIRAN KELAS EKSTRAKURIKULER:</td><td colspan="' + nd + '">' + nd + ' Pertemuan Efektif</td><td>' + d.tot.h + '</td><td>' + d.tot.s + '</td><td>' + d.tot.i + '</td><td>' + d.tot.a + '</td><td>' + String(d.avg).replace('.', ',') + '%</td><td>' + (d.tuntas ? 'TUNTAS KKM' : 'BELUM TUNTAS') + '</td></tr></tbody></table>' : '<div style="padding:40px;text-align:center;font-family:Arial;border:1px dashed #999">Belum ada sesi berstatus <b>Divalidasi</b> pada periode ini.</div>') +
-    '<div class="sign"><div><div>Mengetahui,<br><b>Wakil Kepala Sekolah Bidang Kesiswaan<br>SMAN 1 Kamal Bangkalan</b></div><div class="sp">' + stampSvg(allValid) + '</div><div class="nm2">' + h(m.waka.nama) + '</div><div class="nip">NIP. ' + h(m.waka.nip) + '</div></div>' +
+    '<div class="sign"><div><div>Mengetahui,<br><b>Wakil Kepala Sekolah Bidang Kesiswaan<br>SMAN 1 Kamal Bangkalan</b></div><div class="sp"></div><div class="nm2">' + h(m.waka.nama) + '</div><div class="nip">NIP. ' + h(m.waka.nip) + '</div></div>' +
     '<div><div>' + h(m.tanggalCetak) + '<br><b>Pembina Ekstrakurikuler ' + h(d.kelas.nama) + '<br>SMAN 1 Kamal</b></div><div class="sp"></div><div class="nm2">' + h(d.pembina.nama) + '</div><div class="nip">NIP. ' + h(d.pembina.nip || '-') + '</div></div></div>' +
     '<div class="foot"><div class="row g12" style="display:flex;gap:12px;align-items:center"><div class="qr">' + qr + '</div><div><b>Verifikasi Keaslian Dokumen SIABSENS-EKSKUL</b><br>Pindai kode QR untuk memvalidasi integritas log presensi.<br><span style="font-family:ui-monospace,Menlo,monospace;color:#777">KODE: ' + h(m.kodeVerifikasi) + '</span></div></div><div style="text-align:right;font-family:ui-monospace,Menlo,monospace;color:#777;line-height:14px">Dicetak otomatis melalui SIABSENS-EKSKUL<br>Waktu Server: ' + h(m.waktuServer) + ' WIB<br>Hanya memuat sesi berstatus Divalidasi</div></div></div>';
+}
+/** Halaman lampiran: foto kegiatan & foto selfie pembina per pertemuan yang sudah tervalidasi. */
+function renderLampiranFoto(d) {
+  const items = [];
+  (d.dates || []).forEach(function (x) {
+    if (x.fotoKegiatan) items.push({ id: x.id, jenis: 'kegiatan', label: x.label, cap: 'Pertemuan ' + x.label + ' — Foto Kegiatan' });
+    if (x.fotoSelfie) items.push({ id: x.id, jenis: 'selfie', label: x.label, cap: 'Pertemuan ' + x.label + ' — Foto Selfie Pembina' });
+  });
+  if (!items.length) return '';
+  const m = d.meta;
+  return '<div class="paper lampiran"><div class="kop"><div style="width:70px;height:70px;flex-shrink:0">' + logoHtml('') + '</div><div class="mid"><div class="l1">' + h(m.kop.l1) + '</div><div class="l1">' + h(m.kop.l2) + '</div><div class="l1" style="font-size:12.5px">' + h(m.kop.l3) + '</div><div class="sch">' + h(m.kop.sekolah) + '</div><div class="adr">' + h(m.kop.alamat) + '<br>' + h(m.kop.kontak) + '</div></div><div style="width:70px;flex-shrink:0"></div></div>' +
+    '<div class="ttl"><h2>LAMPIRAN FOTO KEGIATAN &amp; FOTO SELFIE PEMBINA</h2><div class="p">' + h(d.kelas.nama.toUpperCase()) + ' — BULAN ' + h(d.bulanLabel.toUpperCase()) + '</div><div class="no">LAMPIRAN NOMOR DOKUMEN: ' + h(m.nomor) + '</div></div>' +
+    '<div class="lamp-grid">' + items.map(function (it) {
+      return '<div class="lamp-item"><div class="lamp-cap">' + h(it.cap) + '</div><div class="lamp-frame" id="lf-' + it.jenis.charAt(0) + '-' + h(it.id) + '"><span class="lamp-wait">Memuat foto…</span></div></div>';
+    }).join('') + '</div></div>';
+}
+/** Ambil foto bukti dari server satu per satu (tanpa memblokir tampilan tabel utama) dan tempatkan ke frame-nya. */
+function loadLampiranFotos(d) {
+  const items = [];
+  (d.dates || []).forEach(function (x) {
+    if (x.fotoKegiatan) items.push({ id: x.id, jenis: 'kegiatan' });
+    if (x.fotoSelfie) items.push({ id: x.id, jenis: 'selfie' });
+  });
+  items.forEach(function (it) {
+    const box = document.getElementById('lf-' + it.jenis.charAt(0) + '-' + it.id); if (!box) return;
+    call('getPhotoData', it.id, it.jenis).then(function (r) {
+      const el2 = document.getElementById('lf-' + it.jenis.charAt(0) + '-' + it.id); if (!el2) return;
+      el2.innerHTML = '<img src="data:' + h(r.mime) + ';base64,' + r.data + '" alt="' + h(it.jenis) + '">';
+    }).catch(function () {
+      const el2 = document.getElementById('lf-' + it.jenis.charAt(0) + '-' + it.id); if (el2) el2.innerHTML = '<span class="lamp-wait">Foto tidak dapat dimuat.</span>';
+    });
+  });
 }
 PAGES.cetak = function (el) {
   const ui = S.ui.ct = S.ui.ct || { idKelas: '', bulan: S.today.slice(0, 7), zoom: 'fit', cache: {} };
@@ -1839,8 +1877,9 @@ PAGES.cetak = function (el) {
     return;
   }
   if (!d.sesiValid && !ui.picked && !ui.autoTried) { ui.autoTried = true; ui.bulan = prevYm(ui.bulan); toast('Belum ada sesi tervalidasi bulan ini; menampilkan bulan sebelumnya.', 'info'); renderPage(true); return; }
-  el.innerHTML = '<div class="page col g16">' + head + (d.sesiBelumValid ? '<div class="note-box warn"><div class="t"><i class="bi bi-exclamation-triangle"></i> ' + d.sesiBelumValid + ' sesi belum divalidasi</div>Sesi yang belum divalidasi Waka Kesiswaan tidak dihitung dalam dokumen resmi ini.</div>' : '') + '<div class="doc-stage" id="docStage"><div id="docWrap" style="margin:0 auto"><div id="docScale" class="doc-scale" style="width:1040px">' + docHtml(d) + '</div></div></div></div>';
+  el.innerHTML = '<div class="page col g16">' + head + (d.sesiBelumValid ? '<div class="note-box warn"><div class="t"><i class="bi bi-exclamation-triangle"></i> ' + d.sesiBelumValid + ' sesi belum divalidasi</div>Sesi yang belum divalidasi Waka Kesiswaan tidak dihitung dalam dokumen resmi ini.</div>' : '') + '<div class="doc-stage" id="docStage"><div id="docWrap" style="margin:0 auto"><div id="docScale" class="doc-scale" style="width:1040px">' + docHtml(d) + renderLampiranFoto(d) + '</div></div></div></div>';
   setTimeout(applyZoom, 0);
+  if (d.sesiValid) loadLampiranFotos(d);
 };
 ON.ctKelas = function (el) { S.ui.ct.idKelas = el.value; renderPage(true); };
 ON.ctBulan = function (el) { S.ui.ct.bulan = el.value; S.ui.ct.picked = true; renderPage(true); };
@@ -1857,8 +1896,8 @@ ACT.ctZoom = function (el) { const ui = S.ui.ct, cur = Math.round((ui._z || 1) *
 ACT.ctFit = function () { S.ui.ct.zoom = 'fit'; applyZoom(); };
 window.addEventListener('resize', debounce(function () { if (S.page === 'cetak' && S.ui.ct && S.ui.ct.zoom === 'fit') applyZoom(); }, 150));
 ACT.ctPrint = function () {
-  const ui = S.ui.ct, d = ui.cache[ui.idKelas + '|' + ui.bulan], p = $('#docScale .paper'); if (!p || !d) return;
-  const root = $('#printRoot'); root.innerHTML = ''; root.appendChild(p.cloneNode(true));
+  const ui = S.ui.ct, d = ui.cache[ui.idKelas + '|' + ui.bulan], papers = $$('#docScale .paper'); if (!papers.length || !d) return;
+  const root = $('#printRoot'); root.innerHTML = ''; papers.forEach(function (p) { root.appendChild(p.cloneNode(true)); });
   let st = $('#pgStyle'); if (!st) { st = document.createElement('style'); st.id = 'pgStyle'; document.head.appendChild(st); }
   st.textContent = '@page{size:A4 ' + (d.dates.length > 4 ? 'landscape' : 'portrait') + ';margin:10mm}';
   const clean = function () { root.innerHTML = ''; window.removeEventListener('afterprint', clean); };
