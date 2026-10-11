@@ -914,6 +914,22 @@ function showSubmitSuccess(r) {
 // -- Scanner kartu siswa --
 let scanStream = null, scanTimer = null;
 function stopScan() { clearInterval(scanTimer); scanTimer = null; if (scanStream) { scanStream.getTracks().forEach(function (t) { t.stop(); }); scanStream = null; } }
+// Bunyi "ting" saat absen via barcode/QR diterima sistem (Web Audio API, tanpa file suara eksternal)
+let _beepCtx = null;
+function beepOk() {
+  try {
+    if (!_beepCtx) _beepCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (_beepCtx.state === 'suspended') _beepCtx.resume();
+    const ctx = _beepCtx, t0 = ctx.currentTime;
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.type = 'sine'; osc.frequency.setValueAtTime(1046.5, t0);
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(0.35, t0 + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.16);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(t0); osc.stop(t0 + 0.18);
+  } catch (e) { /* perangkat/izin audio tidak mendukung, diamkan */ }
+}
 function markByCode(code, log) {
   const D = S.draft; if (!D) return false;
   // GS1 QR: isi terbaca "91<NISN>" (kadang diawali ]Q3 / dengan tanda kurung / karakter pemisah GS)
@@ -924,7 +940,7 @@ function markByCode(code, log) {
   for (let i = 0; i < cands.length && !p; i++) p = members.find(function (x) { return x.nisn === cands[i] || x.noInduk === cands[i]; });
   if (!p) p = members.find(function (x) { return x.nisn.length >= 5 && raw.indexOf(x.nisn) >= 0; });
   if (!p) { log('? Kode “' + raw.slice(0, 24) + '” tidak dikenali pada ekstrakurikuler ini.', true); return false; }
-  applyStatus(p.id, 'Hadir'); renderMemberList();
+  applyStatus(p.id, 'Hadir'); renderMemberList(); beepOk();
   log('? ' + p.nama + ' ditandai Hadir', false); return true;
 }
 function openScanner() {
