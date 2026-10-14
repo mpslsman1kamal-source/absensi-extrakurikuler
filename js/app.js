@@ -336,7 +336,8 @@ function navGroups() {
   if (r === ROLE.PEMBINA) {
     return [{ items: [
       { id: 'home', icon: 'bi-grid-1x2', label: 'Beranda' }, { id: 'input', icon: 'bi-person-check', label: 'Presensi' },
-      { id: 'peserta', icon: 'bi-people', label: 'Peserta' }, { id: 'riwayat', icon: 'bi-journal-check', label: 'Riwayat' }] },
+      { id: 'peserta', icon: 'bi-people', label: 'Peserta' }, { id: 'riwayat', icon: 'bi-journal-check', label: 'Riwayat' },
+      { id: 'jurnal', icon: 'bi-journal-text', label: 'Jurnal Ekstrakurikuler' }] },
     { g: 'Bantuan', items: [{ id: 'panduan', icon: 'bi-question-circle', label: 'Panduan' }] }];
   }
   const g = [
@@ -347,7 +348,7 @@ function navGroups() {
   ];
   if (r === ROLE.SUPER) g[1].items.push({ id: 'kartu', icon: 'bi-credit-card-2-front', label: 'Cetak Kartu Peserta' });
   if (r === ROLE.ADMIN) g[2].items.push({ id: 'validasi', icon: 'bi-patch-check', label: 'Validasi Presensi', badge: true });
-  g[2].items.push({ id: 'rekap', icon: 'bi-bar-chart-line', label: 'Rekapitulasi & Laporan' }, { id: 'cetak', icon: 'bi-printer', label: 'Cetak Dokumen Resmi' });
+  g[2].items.push({ id: 'rekap', icon: 'bi-bar-chart-line', label: 'Rekapitulasi & Laporan' }, { id: 'cetak', icon: 'bi-printer', label: 'Cetak Dokumen Resmi' }, { id: 'jurnal', icon: 'bi-journal-text', label: 'Jurnal Ekstrakurikuler' });
   if (r === ROLE.SUPER) g[3].items.push({ id: 'akun', icon: 'bi-person-gear', label: 'Akun Pengguna' }, { id: 'pengaturan', icon: 'bi-sliders', label: 'Pengaturan Aplikasi' }, { id: 'backup', icon: 'bi-cloud-arrow-up', label: 'Backup Data Sheets' });
   g[3].items.push({ id: 'panduan', icon: 'bi-question-circle', label: 'Panduan Penggunaan' });
   return g;
@@ -739,15 +740,15 @@ function draftKey(D) { return 'siabsens_draft_' + S.user.id + '_' + D.idKelas + 
 function membersOf(idKelas) { return S.peserta.filter(function (p) { return p.idKelas === idKelas && p.aktif; }).sort(function (a, b) { return a.nama < b.nama ? -1 : 1; }); }
 function saveDraftLocal(silent) {
   const D = S.draft; if (!D) return;
-  lsSet(draftKey(D), JSON.stringify({ entries: D.entries, catatan: D.catatan, ts: Date.now() }));
+  lsSet(draftKey(D), JSON.stringify({ entries: D.entries, catatan: D.catatan, materi: D.materi, tindakLanjut: D.tindakLanjut, ts: Date.now() }));
   D.dirty = false;
   const b = $('#draftInfo'); if (b) b.textContent = 'Draft tersimpan ' + pad(new Date().getHours()) + ':' + pad(new Date().getMinutes());
   if (!silent) toast('Draft tersimpan di perangkat ini.', 'ok');
 }
 const autosaveDraft = debounce(function () { saveDraftLocal(true); }, 800);
 function initDraft(k, tanggal) {
-  const D = S.draft = { idKelas: k.id, tanggal: tanggal, entries: {}, catatan: '', fotoKegiatan: null, fotoSelfie: null, gps: { state: 'wait' }, expanded: false, q: '', dirty: false, existing: null, loading: false, blocked: false };
-  try { const raw = lsGet(draftKey(D)); if (raw) { const o = JSON.parse(raw); D.entries = o.entries || {}; D.catatan = o.catatan || ''; D.restored = true; } } catch (e) { }
+  const D = S.draft = { idKelas: k.id, tanggal: tanggal, entries: {}, catatan: '', materi: '', tindakLanjut: '', fotoKegiatan: null, fotoSelfie: null, gps: { state: 'wait' }, expanded: false, q: '', dirty: false, existing: null, loading: false, blocked: false };
+  try { const raw = lsGet(draftKey(D)); if (raw) { const o = JSON.parse(raw); D.entries = o.entries || {}; D.catatan = o.catatan || ''; D.materi = o.materi || ''; D.tindakLanjut = o.tindakLanjut || ''; D.restored = true; } } catch (e) { }
   const ex = ((S.home && S.home.riwayat) || []).find(function (x) { return x.idKelas === k.id && x.tanggal === tanggal; });
   if (ex) {
     if (ex.status === 'Divalidasi') { D.blocked = true; D.existing = ex; }
@@ -757,7 +758,7 @@ function initDraft(k, tanggal) {
         if (S.draft !== D) return;
         if (!D.restored) {
           d.rows.forEach(function (r) { D.entries[r.idPeserta] = { s: r.status, k: r.ket || '' }; });
-          D.catatan = d.sesi.catatan || '';
+          D.catatan = d.sesi.catatan || ''; D.materi = d.sesi.materi || ''; D.tindakLanjut = d.sesi.tindakLanjut || '';
         }
         D.revisiNote = ex.status === 'Dikembalikan' ? ex.catatanValidator : '';
         D.loading = false; if (S.page === 'input') renderPage(true);
@@ -811,6 +812,8 @@ ACT.markAll = function () {
 };
 ON.memSearch = debounce(function (el) { S.draft.q = el.value; renderMemberList(); }, 120);
 ON.catatan = function (el) { S.draft.catatan = el.value.slice(0, 250); $('#catCount').textContent = S.draft.catatan.length + '/250 karakter'; S.draft.dirty = true; autosaveDraft(); };
+ON.materi = function (el) { S.draft.materi = el.value.slice(0, 150); S.draft.dirty = true; autosaveDraft(); };
+ON.tindakLanjut = function (el) { S.draft.tindakLanjut = el.value.slice(0, 200); S.draft.dirty = true; autosaveDraft(); };
 ACT.mic = function () {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { toast('Pencarian suara tidak didukung di browser ini.', 'warn'); return; }
@@ -860,7 +863,9 @@ PAGES.input = function (el) {
     '<div class="card"><div class="row between mb8"><h3 class="row g8" style="font-size:15px"><i class="bi bi-bar-chart-fill" style="color:var(--primary)"></i> Ringkasan Kehadiran</h3><span class="fs12 muted" id="sumTotal"></span></div><div class="grid g-4" style="grid-template-columns:repeat(4,1fr);gap:8px" id="sumTiles"></div><div class="fs12 mt8 center" id="sumBelum"></div><button type="button" class="btn btn-soft btn-block mt12" data-act="markAll"><i class="bi bi-check2-all"></i> Tandai Semua Hadir</button></div>' +
     '<div><div class="row between mb8"><h3 style="font-size:16px">Daftar Presensi Anggota</h3><span class="fs12 muted">Tap status untuk mengubah</span></div><div class="mem-search mb8"><div class="inp-wrap"><i class="bi bi-search lead"></i><input class="inp pl" id="memQ" type="search" placeholder="Cari nama atau NISN siswa..." value="' + h(D.q) + '" data-on="memSearch" style="padding-right:44px" autocomplete="off"></div><button type="button" class="mic" data-act="mic" aria-label="Cari dengan suara"><i class="bi bi-mic"></i></button></div><div id="memList"></div></div>' +
     '<div><div class="row between mb8"><h3 class="row g8" style="font-size:16px"><i class="bi bi-camera" style="color:var(--primary)"></i> Bukti Foto Lapangan</h3>' + (S.cfg.wajibFoto === 'TRUE' ? '<span class="badge b-danger">Wajib Diunggah</span>' : '<span class="badge b-gray">Opsional</span>') + '</div><div id="photoBox"></div></div>' +
-    '<div class="card"><div class="row between mb8"><h3 class="row g8" style="font-size:15px"><i class="bi bi-pencil-square" style="color:var(--primary)"></i> Catatan Pembina</h3><span class="fs12 muted">Opsional</span></div><textarea class="txt" maxlength="250" data-on="catatan" placeholder="Tulis ringkasan kegiatan, kendala, atau catatan penting…">' + h(D.catatan) + '</textarea><div class="right fs12 muted mt4" id="catCount">' + D.catatan.length + '/250 karakter</div></div>' +
+    '<div class="card"><div class="row between mb8"><h3 class="row g8" style="font-size:15px"><i class="bi bi-journal-text" style="color:var(--primary)"></i> Materi / Bentuk Kegiatan</h3><span class="fs12 muted">Wajib • untuk Jurnal Ekstrakurikuler</span></div><input class="inp" maxlength="150" data-on="materi" placeholder="mis. Pengenalan dasar tali-temali (Simpul Mati &amp; Hidup)" value="' + h(D.materi) + '"></div>' +
+    '<div class="card"><div class="row between mb8"><h3 class="row g8" style="font-size:15px"><i class="bi bi-pencil-square" style="color:var(--primary)"></i> Hambatan / Catatan Pembina</h3><span class="fs12 muted">Opsional</span></div><textarea class="txt" maxlength="250" data-on="catatan" placeholder="Tulis ringkasan kegiatan, kendala, atau catatan penting…">' + h(D.catatan) + '</textarea><div class="right fs12 muted mt4" id="catCount">' + D.catatan.length + '/250 karakter</div></div>' +
+    '<div class="card"><div class="row between mb8"><h3 class="row g8" style="font-size:15px"><i class="bi bi-arrow-right-circle" style="color:var(--primary)"></i> Tindak Lanjut</h3><span class="fs12 muted">Opsional</span></div><textarea class="txt" maxlength="200" data-on="tindakLanjut" placeholder="mis. Mengulas kembali materi pada pertemuan berikutnya…">' + h(D.tindakLanjut) + '</textarea></div>' +
     '<div class="sticky-act"><div class="row g8"><button type="button" class="btn btn-secondary btn-lg" data-act="saveDraft" style="flex:0 0 auto"><i class="bi bi-floppy"></i> Simpan Draft</button><button type="button" class="btn btn-accent btn-lg grow" id="btnSubmit" data-act="submitAbsensi">Kirim ke Waka <i class="bi bi-send"></i></button></div><div class="sync"><i class="bi bi-arrow-repeat"></i> Data langsung tersinkron ke Google Sheets &amp; Drive SMAN 1 Kamal <span id="draftInfo" style="margin-left:6px"></span></div></div></div>';
   renderMemberList(); renderSummary(); renderPhotos(); renderGps(); startGps();
   if (D.restored) { D.restored = false; toast('Draft presensi sebelumnya dipulihkan.', 'info'); }
@@ -877,8 +882,9 @@ ACT.submitAbsensi = async function (btn) {
   }
   if (S.cfg.wajibFoto === 'TRUE' && (!D.fotoKegiatan || !D.fotoSelfie)) { toast('Foto kegiatan dan foto selfie pembina wajib diunggah.', 'warn', 'Bukti foto belum lengkap'); const b = $('#photoBox'); if (b) b.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
   if (S.cfg.wajibGPS === 'TRUE' && (!D.gps || D.gps.state !== 'ok')) { toast('Lokasi GPS harus aktif dan berada dalam radius sekolah.', 'warn', 'GPS belum valid'); return; }
+  if (!D.materi.trim()) { toast('Materi / bentuk kegiatan wajib diisi untuk Jurnal Ekstrakurikuler.', 'warn', 'Materi belum diisi'); const b = $('[data-on="materi"]'); if (b) b.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
   const payload = {
-    idKelas: D.idKelas, tanggal: D.tanggal, catatan: D.catatan,
+    idKelas: D.idKelas, tanggal: D.tanggal, catatan: D.catatan, materi: D.materi, tindakLanjut: D.tindakLanjut,
     entries: membersOf(D.idKelas).map(function (p) { return { id: p.id, s: D.entries[p.id].s, k: D.entries[p.id].k || '' }; }),
     gps: D.gps && D.gps.lat ? { lat: D.gps.lat, lng: D.gps.lng } : null,
     fotoKegiatan: D.fotoKegiatan ? { data: D.fotoKegiatan.b64, mime: D.fotoKegiatan.mime } : null,
@@ -1912,6 +1918,93 @@ ACT.ctExport = async function (btn) {
   }, f === 'pdf' ? 'Membuat PDF…' : 'Membuat Excel…');
 };
 
+/** Versi "kertas" Jurnal Ekstrakurikuler untuk pratinjau layar & cetak -- 4 halaman seperti dokumen resmi. */
+function jurnalDocHtml(d) {
+  const m = d.meta;
+  const kopBlock = '<div class="kop"><div style="width:70px;height:70px;flex-shrink:0">' + logoHtml('') + '</div><div class="mid"><div class="l1">' + h(m.kop.l1) + '</div><div class="l1">' + h(m.kop.l2) + '</div><div class="l1" style="font-size:12.5px">' + h(m.kop.l3) + '</div><div class="sch">' + h(m.kop.sekolah) + '</div><div class="adr">' + h(m.kop.alamat) + '<br>' + h(m.kop.kontak) + '</div></div><div style="width:70px;flex-shrink:0"></div></div>';
+
+  // Halaman 1: Identitas + Tabel Jurnal
+  const body = d.rows.map(function (r) {
+    return '<tr><td>' + r.no + '</td><td style="white-space:nowrap">' + h(r.tglLabel) + '</td><td class="l">' + h(r.materi) + '</td><td class="l">' + h(r.lokasi) + '</td><td><b>' + r.jumlahHadir + '</b><br><span style="font-size:9px;color:#666">Siswa</span></td><td class="l" style="font-size:9.5px">' + h(r.catatan) + '</td><td class="l" style="font-size:9.5px">' + h(r.tindakLanjut) + '</td><td></td></tr>';
+  }).join('');
+  const p1 = '<div class="paper">' + kopBlock +
+    '<div class="ttl"><h2>JURNAL KEGIATAN EKSTRAKURIKULER</h2><div class="p">' + h(d.kelas.nama.toUpperCase()) + ' — ' + h(d.bulanLabel.toUpperCase()) + '</div><div class="no">NOMOR DOKUMEN: ' + h(m.nomor) + '</div></div>' +
+    '<div class="meta"><div><span class="k">Nama Sekolah</span><span>' + h(m.kop.sekolah) + '</span></div><div><span class="k">Nama Ekstrakurikuler</span><span><b>' + h(d.kelas.nama) + '</b></span></div><div><span class="k">Tahun Pelajaran</span><span>' + h(m.tahunAjaran) + ' - Semester ' + h(m.semester) + '</span></div><div><span class="k">Nama Pembina / Pelatih</span><span>' + h(m.pembina.nama) + '</span></div><div><span class="k">Hari / Waktu Latihan</span><span>' + h(m.hariWaktu) + '</span></div><div><span class="k">Periode Laporan</span><span>' + h(d.bulanLabel) + '</span></div></div>' +
+    (d.rows.length ? '<table><thead><tr><th style="width:26px">No</th><th style="width:92px">Hari / Tanggal</th><th>Materi / Bentuk Kegiatan</th><th style="width:110px">Lokasi / Tempat</th><th style="width:54px">Jml. Siswa Hadir</th><th>Hambatan / Catatan Pembina</th><th>Tindak Lanjut</th><th style="width:70px">TTD Pembina</th></tr></thead><tbody>' + body + '</tbody></table>' : '<div style="padding:40px;text-align:center;font-family:Arial;border:1px dashed #999">Belum ada sesi berstatus <b>Divalidasi</b> pada periode ini.</div>') +
+    '<div class="sign" style="justify-content:flex-end"><div style="flex:0 0 46%"><div>' + h(m.tanggalCetak) + '<br><b>Pembina Ekstrakurikuler ' + h(d.kelas.nama) + '</b></div><div class="sp"></div><div class="nm2">' + h(m.pembina.nama) + '</div><div class="nip">NIP. ' + h(m.pembina.nip || '-') + '</div></div></div>' +
+    '</div>';
+
+  // Halaman 2: Lampiran 1 -- Daftar Hadir Siswa
+  const absenRows = d.peserta.map(function (p) {
+    return '<tr><td>' + p.no + '</td><td style="font-family:ui-monospace,Menlo,monospace">' + h(p.nisn) + '</td><td style="font-family:ui-monospace,Menlo,monospace">' + h(p.noInduk) + '</td><td class="l">' + h(p.nama) + '</td><td>' + h(p.kelasJur) + '</td>' + d.dates.map(function () { return '<td>&nbsp;</td>'; }).join('') + '</tr>';
+  }).join('');
+  const p2 = '<div class="paper lampiran">' + kopBlock +
+    '<div class="ttl"><h2>LAMPIRAN 1 — DAFTAR HADIR SISWA</h2><div class="p">' + h(d.kelas.nama.toUpperCase()) + ' — ' + h(d.bulanLabel.toUpperCase()) + '</div><div class="no">LAMPIRAN NOMOR DOKUMEN: ' + h(m.nomor) + '</div></div>' +
+    (d.peserta.length ? '<table><thead><tr><th style="width:26px">No</th><th style="width:76px">NISN</th><th style="width:50px">No. Induk</th><th>Nama Siswa</th><th style="width:60px">Kelas</th>' + d.dates.map(function (x) { return '<th style="width:34px">' + h(x.label) + '</th>'; }).join('') + '</tr></thead><tbody>' + absenRows + '</tbody></table>' : '<div style="padding:40px;text-align:center;font-family:Arial;border:1px dashed #999">Belum ada peserta aktif.</div>') +
+    '</div>';
+
+  // Halaman 3: Lampiran 2 -- Dokumentasi Kegiatan (pakai ulang fungsi yang sama dengan dokumen Rekap)
+  const p3 = renderLampiranFoto(d);
+
+  // Halaman 4: Halaman Pengesahan
+  const p4 = '<div class="paper lampiran">' + kopBlock +
+    '<div class="ttl"><h2>HALAMAN PENGESAHAN</h2><div class="p">JURNAL KEGIATAN EKSTRAKURIKULER ' + h(d.kelas.nama.toUpperCase()) + '</div><div class="no">NOMOR DOKUMEN: ' + h(m.nomor) + '</div></div>' +
+    '<div style="margin-top:30px;font-family:Arial,sans-serif;font-size:12.5px;line-height:20px">Jurnal kegiatan ekstrakurikuler ini disusun sebagai bukti fisik pelaksanaan tugas tambahan pembina/pelatih ekstrakurikuler <b>' + h(d.kelas.nama) + '</b> pada periode <b>' + h(d.bulanLabel) + '</b>, untuk keperluan pelaporan kinerja, akreditasi sekolah, maupun pengisian e-Kinerja.</div>' +
+    '<div class="sign" style="margin-top:50px"><div><div>Mengetahui,<br><b>Kepala Sekolah<br>' + h(m.kop.sekolah) + '</b></div><div class="sp"></div><div class="nm2">' + h(m.kepsek.nama) + '</div><div class="nip">NIP. ' + h(m.kepsek.nip || '-') + '</div></div>' +
+    '<div><div>Dibuat oleh,<br><b>Pembina Ekstrakurikuler<br>' + h(d.kelas.nama) + '</b></div><div class="sp"></div><div class="nm2">' + h(m.pembina.nama) + '</div><div class="nip">NIP. ' + h(m.pembina.nip || '-') + '</div></div></div>' +
+    '</div>';
+
+  return p1 + p2 + p3 + p4;
+}
+// ---------------- BAGIAN 25b: JURNAL EKSTRAKURIKULER ----------------
+PAGES.jurnal = function (el) {
+  const ui = S.ui.jr = S.ui.jr || { idKelas: '', bulan: S.today.slice(0, 7), zoom: 'fit', cache: {} };
+  if (!ui.idKelas || !S.kmap[ui.idKelas]) ui.idKelas = (isPembina() ? (curKelas() || {}).id : (S.kelas[0] || {}).id) || '';
+  if (!ui.idKelas) { el.innerHTML = '<div class="card">' + emptyState('bi-journal-text', 'Belum ada ekstrakurikuler') + '</div>'; return; }
+  const key = ui.idKelas + '|' + ui.bulan, d = ui.cache[key];
+  const head = '<div class="card"><div class="row between g16 wrap"><div><div class="row g8"><span class="dot ok"></span><b style="font-family:var(--f-head);font-size:16px">Jurnal Kegiatan Ekstrakurikuler</b></div><div class="fs13 muted mt4">Format baku administrasi Kemendikdasmen • Periode ' + h(bulanLabel(ui.bulan)) + ' • ' + h((S.kmap[ui.idKelas] || {}).nama) + '</div></div><div class="row g8 wrap"><select class="sel" style="width:240px" data-onchange="jrKelas" aria-label="Ekstrakurikuler">' + S.kelas.map(function (k) { return '<option value="' + h(k.id) + '"' + (ui.idKelas === k.id ? ' selected' : '') + '>' + h(k.nama) + '</option>'; }).join('') + '</select><select class="sel" style="width:170px" data-onchange="jrBulan" aria-label="Bulan">' + monthOptions(ui.bulan) + '</select></div></div>' +
+    '<div class="doc-tools mt16"><div class="zoom-box"><button class="icon-btn sm" data-act="jrZoom" data-d="-10" aria-label="Perkecil"><i class="bi bi-zoom-out"></i></button><b class="num fs13" id="zoomLbl" style="min-width:40px;text-align:center">100%</b><button class="icon-btn sm" data-act="jrZoom" data-d="10" aria-label="Perbesar"><i class="bi bi-zoom-in"></i></button><span style="width:1px;height:18px;background:var(--border-strong)"></span><button class="btn btn-ghost btn-sm" data-act="jrFit">Fit to Width</button></div><span class="spacer"></span>' +
+    '<button class="btn btn-secondary" data-act="jrPrint"' + (d && d.sesiValid ? '' : ' disabled') + '><i class="bi bi-printer"></i> Cetak Langsung</button><button class="btn btn-soft" data-act="jrExport" data-f="xlsx"' + (d && d.sesiValid ? '' : ' disabled') + '><i class="bi bi-file-earmark-excel"></i> Export Excel (.xlsx)</button><button class="btn btn-primary" data-act="jrExport" data-f="pdf"' + (d && d.sesiValid ? '' : ' disabled') + '><i class="bi bi-file-earmark-pdf"></i> Download PDF Jurnal</button></div></div>';
+  if (!d) {
+    el.innerHTML = '<div class="page col g16">' + head + '<div class="skel" style="height:420px"></div></div>';
+    call('getJurnal', { idKelas: ui.idKelas, bulan: ui.bulan }).then(function (r) { ui.cache[key] = r; if (S.page === 'jurnal') renderPage(true); }).catch(function (e) { toast(errMsg(e), 'danger'); });
+    return;
+  }
+  el.innerHTML = '<div class="page col g16">' + head + (d.sesiBelumValid ? '<div class="note-box warn"><div class="t"><i class="bi bi-exclamation-triangle"></i> ' + d.sesiBelumValid + ' sesi belum divalidasi</div>Sesi yang belum divalidasi Waka Kesiswaan tidak dihitung dalam jurnal ini.</div>' : '') + '<div class="doc-stage" id="docStage"><div id="docWrap" style="margin:0 auto"><div id="docScale" class="doc-scale" style="width:1040px">' + jurnalDocHtml(d) + '</div></div></div></div>';
+  setTimeout(applyZoomJr, 0);
+  if (d.sesiValid) loadLampiranFotos(d);
+};
+ON.jrKelas = function (el) { S.ui.jr.idKelas = el.value; renderPage(true); };
+ON.jrBulan = function (el) { S.ui.jr.bulan = el.value; renderPage(true); };
+function applyZoomJr() {
+  const ui = S.ui.jr, st = $('#docStage'), sc = $('#docScale'), wrap = $('#docWrap'); if (!st || !sc) return;
+  const paper = $('.paper', sc); if (!paper) return;
+  let z = ui.zoom === 'fit' ? Math.min(1.4, (st.clientWidth - (window.innerWidth < 768 ? 16 : 48)) / 1040) : ui.zoom / 100;
+  z = Math.max(0.25, Math.min(2, z));
+  sc.style.transform = 'scale(' + z + ')'; wrap.style.width = Math.round(1040 * z) + 'px'; wrap.style.height = Math.round(sc.scrollHeight * z) + 'px';
+  const lb = $('#zoomLbl'); if (lb) lb.textContent = Math.round(z * 100) + '%';
+  ui._z = z;
+}
+ACT.jrZoom = function (el) { const ui = S.ui.jr, cur = Math.round((ui._z || 1) * 100); ui.zoom = Math.max(30, Math.min(200, cur + Number(el.dataset.d))); applyZoomJr(); };
+ACT.jrFit = function () { S.ui.jr.zoom = 'fit'; applyZoomJr(); };
+window.addEventListener('resize', debounce(function () { if (S.page === 'jurnal' && S.ui.jr && S.ui.jr.zoom === 'fit') applyZoomJr(); }, 150));
+ACT.jrPrint = function () {
+  const ui = S.ui.jr, d = ui.cache[ui.idKelas + '|' + ui.bulan], papers = $$('#docScale .paper'); if (!papers.length || !d) return;
+  const root = $('#printRoot'); root.innerHTML = ''; papers.forEach(function (p) { root.appendChild(p.cloneNode(true)); });
+  let st = $('#pgStyle'); if (!st) { st = document.createElement('style'); st.id = 'pgStyle'; document.head.appendChild(st); }
+  st.textContent = '@page{size:A4 ' + (d.dates.length > 4 ? 'landscape' : 'portrait') + ';margin:10mm}';
+  const clean = function () { root.innerHTML = ''; window.removeEventListener('afterprint', clean); };
+  window.addEventListener('afterprint', clean);
+  setTimeout(function () { try { window.print(); } catch (e) { toast('Cetak langsung tidak tersedia pada jendela ini. Gunakan Download PDF Jurnal.', 'warn'); clean(); } }, 60);
+};
+ACT.jrExport = async function (btn) {
+  const ui = S.ui.jr, f = btn.dataset.f;
+  await withBusy(btn, async function () {
+    try { const r = await call('exportJurnal', { idKelas: ui.idKelas, bulan: ui.bulan, format: f }); deliverFile(r.filename, r.mime, r.data); }
+    catch (e) { toast(errMsg(e), 'danger', 'Gagal membuat file'); }
+  }, f === 'pdf' ? 'Membuat PDF…' : 'Membuat Excel…');
+};
+
 // ---------------- BAGIAN 26: CETAK KARTU PESERTA (Super Admin) ----------------
 // Kartu CR80 potret (54 × 85,6 mm). Identitas: nama, NISN, ekstrakurikuler.
 // Kode batang: GS1 QR Code, AI (91) berisi NISN ? posisinya di BAWAH identitas.
@@ -2167,7 +2260,7 @@ PAGES.pengaturan = function (el) {
   const inp = function (k, l, o) { o = o || {}; return field(l, '<input class="inp' + (o.mono ? ' mono' : '') + '" data-cfg="' + k + '" value="' + h(c[k] || '') + '"' + (o.type ? ' type="' + o.type + '"' : '') + (o.ph ? ' placeholder="' + h(o.ph) + '"' : '') + '>', o.hint); };
   el.innerHTML = '<div class="page col g24">' + pageHead({ title: 'Pengaturan Aplikasi', sub: 'Identitas sekolah, kop surat dokumen resmi, aturan presensi, dan geofence.', actions: '<button class="btn btn-primary" data-act="cfgSave"><i class="bi bi-floppy"></i> Simpan Pengaturan</button>' }) +
     '<div class="grid g-2 g-mob1" style="align-items:start"><div class="card"><div class="card-h"><h3>Identitas &amp; Kop Surat</h3></div>' + inp('namaSekolah', 'Nama sekolah') + inp('kopLine1', 'Kop baris 1') + inp('kopLine2', 'Kop baris 2') + inp('kopLine3', 'Kop baris 3') + inp('alamat', 'Alamat') + inp('kontak', 'Kontak / NSS / NPSN') + inp('kota', 'Kota (untuk tanggal tanda tangan)') + inp('logoUrl', 'URL / tautan Drive logo sekolah (opsional)', { hint: 'Kosongkan untuk memakai logo bawaan. Tautan Google Drive harus dibagikan “siapa saja yang memiliki tautan”.' }) + '</div>' +
-    '<div class="col g16"><div class="card"><div class="card-h"><h3>Akademik &amp; Penandatangan</h3></div><div class="grid g-2 g-mob1"><div>' + inp('tahunAjaran', 'Tahun ajaran', { ph: '2026/2027' }) + '</div><div>' + field('Semester', '<select class="sel" data-cfg="semester"><option' + (c.semester === 'Ganjil' ? ' selected' : '') + '>Ganjil</option><option' + (c.semester === 'Genap' ? ' selected' : '') + '>Genap</option></select>') + '</div></div>' + inp('wakaNama', 'Nama Wakasek Kesiswaan') + inp('wakaNIP', 'NIP Wakasek Kesiswaan', { mono: true }) + '<div class="grid g-2 g-mob1"><div>' + inp('nomorPrefix', 'Prefiks nomor dokumen', { mono: true }) + '</div><div>' + inp('targetKKM', 'Target KKM kehadiran (%)', { type: 'number' }) + '</div></div></div>' +
+    '<div class="col g16"><div class="card"><div class="card-h"><h3>Akademik &amp; Penandatangan</h3></div><div class="grid g-2 g-mob1"><div>' + inp('tahunAjaran', 'Tahun ajaran', { ph: '2026/2027' }) + '</div><div>' + field('Semester', '<select class="sel" data-cfg="semester"><option' + (c.semester === 'Ganjil' ? ' selected' : '') + '>Ganjil</option><option' + (c.semester === 'Genap' ? ' selected' : '') + '>Genap</option></select>') + '</div></div>' + inp('wakaNama', 'Nama Wakasek Kesiswaan') + inp('wakaNIP', 'NIP Wakasek Kesiswaan', { mono: true }) + inp('kepsekNama', 'Nama Kepala Sekolah (Halaman Pengesahan Jurnal)') + inp('kepsekNIP', 'NIP Kepala Sekolah', { mono: true }) + '<div class="grid g-2 g-mob1"><div>' + inp('nomorPrefix', 'Prefiks nomor dokumen', { mono: true }) + '</div><div>' + inp('targetKKM', 'Target KKM kehadiran (%)', { type: 'number' }) + '</div></div></div>' +
     '<div class="card"><div class="card-h"><h3>Aturan Presensi &amp; Geofence</h3></div><div class="col g8">' + tg('wajibFoto', 'Foto bukti wajib', 'Pembina harus mengunggah foto kegiatan & selfie.') + tg('wajibGPS', 'GPS wajib & dalam radius', 'Presensi ditolak bila di luar radius sekolah.') + tg('persenTermasukSakitIzin', 'Hitung Sakit & Izin sebagai hadir', 'Mengubah rumus persentase kehadiran.') + tg('emailNotif', 'Notifikasi email ke Admin', 'Hanya untuk akun Admin dengan username berupa email.') + '</div>' +
     '<div class="grid g-3 g-mob1 mt16" style="grid-template-columns:1fr 1fr 1fr"><div>' + inp('geoLat', 'Latitude sekolah', { mono: true }) + '</div><div>' + inp('geoLng', 'Longitude sekolah', { mono: true }) + '</div><div>' + inp('geoRadius', 'Radius (m)', { type: 'number' }) + '</div></div><div class="grid g-2 g-mob1"><div>' + inp('batasPengisian', 'Batas pengisian harian', { type: 'time' }) + '</div><div style="display:flex;align-items:flex-end;padding-bottom:14px"><button class="btn btn-secondary btn-block" data-act="cfgGeo"><i class="bi bi-crosshair"></i> Gunakan lokasi saya</button></div></div>' +
     tg('demoMode', 'Mode uji coba (login cepat)', 'Tampilkan tombol login cepat di halaman masuk. Matikan saat dipakai produksi.') + '</div></div></div></div>';
