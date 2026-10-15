@@ -812,7 +812,7 @@ ACT.markAll = function () {
 };
 ON.memSearch = debounce(function (el) { S.draft.q = el.value; renderMemberList(); }, 120);
 ON.catatan = function (el) { S.draft.catatan = el.value.slice(0, 250); $('#catCount').textContent = S.draft.catatan.length + '/250 karakter'; S.draft.dirty = true; autosaveDraft(); };
-ON.materi = function (el) { S.draft.materi = el.value.slice(0, 150); S.draft.dirty = true; autosaveDraft(); };
+ON.materi = function (el) { S.draft.materi = el.value.slice(0, 150); S.draft.dirty = true; autosaveDraft(); if (el.value.trim()) { el.classList.remove('err'); const err = $('#materiErr'); if (err) err.classList.add('hide'); } };
 ON.tindakLanjut = function (el) { S.draft.tindakLanjut = el.value.slice(0, 200); S.draft.dirty = true; autosaveDraft(); };
 ACT.mic = function () {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -863,7 +863,7 @@ PAGES.input = function (el) {
     '<div class="card"><div class="row between mb8"><h3 class="row g8" style="font-size:15px"><i class="bi bi-bar-chart-fill" style="color:var(--primary)"></i> Ringkasan Kehadiran</h3><span class="fs12 muted" id="sumTotal"></span></div><div class="grid g-4" style="grid-template-columns:repeat(4,1fr);gap:8px" id="sumTiles"></div><div class="fs12 mt8 center" id="sumBelum"></div><button type="button" class="btn btn-soft btn-block mt12" data-act="markAll"><i class="bi bi-check2-all"></i> Tandai Semua Hadir</button></div>' +
     '<div><div class="row between mb8"><h3 style="font-size:16px">Daftar Presensi Anggota</h3><span class="fs12 muted">Tap status untuk mengubah</span></div><div class="mem-search mb8"><div class="inp-wrap"><i class="bi bi-search lead"></i><input class="inp pl" id="memQ" type="search" placeholder="Cari nama atau NISN siswa..." value="' + h(D.q) + '" data-on="memSearch" style="padding-right:44px" autocomplete="off"></div><button type="button" class="mic" data-act="mic" aria-label="Cari dengan suara"><i class="bi bi-mic"></i></button></div><div id="memList"></div></div>' +
     '<div><div class="row between mb8"><h3 class="row g8" style="font-size:16px"><i class="bi bi-camera" style="color:var(--primary)"></i> Bukti Foto Lapangan</h3>' + (S.cfg.wajibFoto === 'TRUE' ? '<span class="badge b-danger">Wajib Diunggah</span>' : '<span class="badge b-gray">Opsional</span>') + '</div><div id="photoBox"></div></div>' +
-    '<div class="card"><div class="row between mb8"><h3 class="row g8" style="font-size:15px"><i class="bi bi-journal-text" style="color:var(--primary)"></i> Materi / Bentuk Kegiatan</h3><span class="fs12 muted">Wajib • untuk Jurnal Ekstrakurikuler</span></div><input class="inp" maxlength="150" data-on="materi" placeholder="mis. Pengenalan dasar tali-temali (Simpul Mati &amp; Hidup)" value="' + h(D.materi) + '"></div>' +
+    '<div class="card"><div class="row between mb8"><h3 class="row g8" style="font-size:15px"><i class="bi bi-journal-text" style="color:var(--primary)"></i> Materi / Bentuk Kegiatan</h3><span class="fs12 muted">Wajib • untuk Jurnal Ekstrakurikuler</span></div><input class="inp" id="inpMateri" maxlength="150" data-on="materi" placeholder="mis. Pengenalan dasar tali-temali (Simpul Mati &amp; Hidup)" value="' + h(D.materi) + '"><div class="ferr hide" id="materiErr"><i class="bi bi-exclamation-circle"></i> Materi / bentuk kegiatan wajib diisi sebelum jurnal bisa dikirim ke Waka.</div></div>' +
     '<div class="card"><div class="row between mb8"><h3 class="row g8" style="font-size:15px"><i class="bi bi-pencil-square" style="color:var(--primary)"></i> Hambatan / Catatan Pembina</h3><span class="fs12 muted">Opsional</span></div><textarea class="txt" maxlength="250" data-on="catatan" placeholder="Tulis ringkasan kegiatan, kendala, atau catatan penting…">' + h(D.catatan) + '</textarea><div class="right fs12 muted mt4" id="catCount">' + D.catatan.length + '/250 karakter</div></div>' +
     '<div class="card"><div class="row between mb8"><h3 class="row g8" style="font-size:15px"><i class="bi bi-arrow-right-circle" style="color:var(--primary)"></i> Tindak Lanjut</h3><span class="fs12 muted">Opsional</span></div><textarea class="txt" maxlength="200" data-on="tindakLanjut" placeholder="mis. Mengulas kembali materi pada pertemuan berikutnya…">' + h(D.tindakLanjut) + '</textarea></div>' +
     '<div class="sticky-act"><div class="row g8"><button type="button" class="btn btn-secondary btn-lg" data-act="saveDraft" style="flex:0 0 auto"><i class="bi bi-floppy"></i> Simpan Draft</button><button type="button" class="btn btn-accent btn-lg grow" id="btnSubmit" data-act="submitAbsensi">Kirim ke Waka <i class="bi bi-send"></i></button></div><div class="sync"><i class="bi bi-arrow-repeat"></i> Data langsung tersinkron ke Google Sheets &amp; Drive SMAN 1 Kamal <span id="draftInfo" style="margin-left:6px"></span></div></div></div>';
@@ -882,7 +882,13 @@ ACT.submitAbsensi = async function (btn) {
   }
   if (S.cfg.wajibFoto === 'TRUE' && (!D.fotoKegiatan || !D.fotoSelfie)) { toast('Foto kegiatan dan foto selfie pembina wajib diunggah.', 'warn', 'Bukti foto belum lengkap'); const b = $('#photoBox'); if (b) b.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
   if (S.cfg.wajibGPS === 'TRUE' && (!D.gps || D.gps.state !== 'ok')) { toast('Lokasi GPS harus aktif dan berada dalam radius sekolah.', 'warn', 'GPS belum valid'); return; }
-  if (!D.materi.trim()) { toast('Materi / bentuk kegiatan wajib diisi untuk Jurnal Ekstrakurikuler.', 'warn', 'Materi belum diisi'); const b = $('[data-on="materi"]'); if (b) b.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
+  if (!D.materi.trim()) {
+    toast('Lengkapi isian jurnal terlebih dahulu: Materi / Bentuk Kegiatan wajib diisi.', 'warn', 'Jurnal belum lengkap');
+    const inp = $('#inpMateri'), err = $('#materiErr');
+    if (inp) inp.classList.add('err'); if (err) err.classList.remove('hide');
+    if (inp) { inp.scrollIntoView({ block: 'center', behavior: 'smooth' }); inp.focus(); }
+    return;
+  }
   const payload = {
     idKelas: D.idKelas, tanggal: D.tanggal, catatan: D.catatan, materi: D.materi, tindakLanjut: D.tindakLanjut,
     entries: membersOf(D.idKelas).map(function (p) { return { id: p.id, s: D.entries[p.id].s, k: D.entries[p.id].k || '' }; }),
@@ -1936,7 +1942,8 @@ function jurnalDocHtml(d) {
 
   // Halaman 2: Lampiran 1 -- Daftar Hadir Siswa
   const absenRows = d.peserta.map(function (p) {
-    return '<tr><td>' + p.no + '</td><td style="font-family:ui-monospace,Menlo,monospace">' + h(p.nisn) + '</td><td style="font-family:ui-monospace,Menlo,monospace">' + h(p.noInduk) + '</td><td class="l">' + h(p.nama) + '</td><td>' + h(p.kelasJur) + '</td>' + d.dates.map(function () { return '<td>&nbsp;</td>'; }).join('') + '</tr>';
+    const MKJ = { Hadir: '<span class="mk-H">✓</span>', Sakit: '<span class="mk-S">S</span>', Izin: '<span class="mk-I">I</span>', Alpa: '<span class="mk-A">A</span>' };
+    return '<tr><td>' + p.no + '</td><td style="font-family:ui-monospace,Menlo,monospace">' + h(p.nisn) + '</td><td style="font-family:ui-monospace,Menlo,monospace">' + h(p.noInduk) + '</td><td class="l">' + h(p.nama) + '</td><td>' + h(p.kelasJur) + '</td>' + (p.marks || []).map(function (v) { return '<td>' + (MKJ[v] || '-') + '</td>'; }).join('') + '</tr>';
   }).join('');
   const p2 = '<div class="paper lampiran">' + kopBlock +
     '<div class="ttl"><h2>LAMPIRAN 1 — DAFTAR HADIR SISWA</h2><div class="p">' + h(d.kelas.nama.toUpperCase()) + ' — ' + h(d.bulanLabel.toUpperCase()) + '</div><div class="no">LAMPIRAN NOMOR DOKUMEN: ' + h(m.nomor) + '</div></div>' +
